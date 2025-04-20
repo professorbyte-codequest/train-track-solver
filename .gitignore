@@ -1,0 +1,68 @@
+# Build Folders
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Logs
+*.log
+
+# Visual Studio working files
+.vs/
+.vscode/
+
+# Rider working files
+.idea/
+*.sln.iml
+
+# NuGet Packages
+*.nupkg
+packages/
+project.lock.json
+project.fragment.lock.json
+
+# DotNet Core
+project.lock.json
+artifacts/
+
+# ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+# Entity Framework
+*.edmx.diagram
+*.edmx.sql
+*.edmx
+
+# Azure
+*.azurePubxml
+*.azurePubxml.user
+
+# Resharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+
+# Backup & Report Files
+*.bak
+*.swp
+*.orig
+*.err
+
+# Others
+*.cache
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.pidb
+*.svclog
+*.tlog
+*.ide
+*.ilk
+*.idb
+*.DS_Store
+*.directory
+*.~*
