@@ -1,0 +1,11 @@
+# 9x10 Shape
+ROWS: 2 4 3 9 6 2 4 9 4
+COLS: 5 2 3 3 6 4 7 7 5 1
+FIXED:
+0, 8: CornerNW
+3, 4: Vertical
+3, 8: Horizontal
+3, 9: Horizontal
+4, 2: CornerNE
+4, 6: CornerSE
+7, 3: CornerSW

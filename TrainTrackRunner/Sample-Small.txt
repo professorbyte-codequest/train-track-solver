@@ -1,0 +1,8 @@
+ROWS: 2 7 5 4 8 3 2
+COLS: 1 1 5 6 5 4 3 4 2
+FIXED:
+0, 6: CornerSW
+3, 4: CornerSW
+4, 4: Vertical
+4, 0: Horizontal
+6, 2: CornerSE

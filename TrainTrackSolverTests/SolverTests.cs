@@ -1,29 +1,101 @@
 namespace TrainTrackSolverTests;
 
-// TrainTrackSolverTests - Unit tests for Part 1 logic
+// TrainTrackSolverTests - Unit tests for the TrainTrackSolverLib
 using TrainTrackSolverLib;
 using Xunit;
 
 public class SolverTests
-{
-    [Fact]
-    public void Solver_FindsValidSolution_ForSimpleGrid()
+{ 
+    private string WritePuzzle(string content)
     {
-        var rowCounts = new[] { 1, 1, 1 };
-        var colCounts = new[] { 1, 1, 1 };
-        var grid = new Grid(3, 3, rowCounts, colCounts);
+        var path = Path.GetTempFileName();
+        File.WriteAllText(path, content);
+        return path;
+    }
+
+    [Fact]
+    public void Solve_Easy3x3Straight()
+    {
+        string puzzle =
+            """
+            # 3x3 Straight Line
+            ROWS: 1 1 1
+            COLS: 0 3 0
+            FIXED:
+            0,1: Vertical
+            2,1: Vertical
+            """;
+        var path = WritePuzzle(puzzle);
+        var grid = Grid.LoadFromFile(path);
         var solver = new Solver(grid);
+        Assert.True(solver.Solve());
+        Assert.True(grid.IsSingleConnectedPath());
+    }
 
-        bool solved = solver.Solve();
+    [Fact]
+    public void Solve_Medium5x5T()
+    {
+        string puzzle =
+            """
+            # 5x5 L Shape
+            ROWS: 5 1 1 1 1
+            COLS: 1 1 1 1 5
+            FIXED:
+            0,0: CornerNE
+            4,4: CornerNE
+            """;
+        var path = WritePuzzle(puzzle);
+        var grid = Grid.LoadFromFile(path);
+        var solver = new Solver(grid);
+        Assert.True(solver.Solve());
+        Assert.True(grid.IsSingleConnectedPath());
+    }
 
-        Assert.True(solved);
+    [Fact]
+    public void Solve_Hard10x10Line()
+    {
+        string puzzle =
+            """
+            # 10x10 Horizontal Line
+            ROWS: 0 0 0 0 0 10 0 0 0 0
+            COLS: 1 1 1 1 1 1 1 1 1 1
+            FIXED:
+            5,0: Horizontal
+            5,9: Horizontal
+            """;
+        var path = WritePuzzle(puzzle);
+        var grid = Grid.LoadFromFile(path);
+        var solver = new Solver(grid);
+        Assert.True(solver.Solve());
+        Assert.True(grid.IsSingleConnectedPath());
+    }
 
-        int totalTracks = 0;
-        for (int r = 0; r < 3; r++)
-            for (int c = 0; c < 3; c++)
-                if (grid.Board[r, c] != PieceType.Empty)
-                    totalTracks++;
+    [Fact]
+    public void Solve_Small()
+    {
+        string puzzle =
+            """
+            ROWS: 2 7 5 4 8 3 2
+            COLS: 1 1 5 6 5 4 3 4 2
+            FIXED:
+            0, 6: CornerSW
+            3, 4: CornerSW
+            4, 4: Vertical
+            4, 0: Horizontal
+            6, 2: CornerSE
+            """;
+        var path = WritePuzzle(puzzle);
+        var grid = Grid.LoadFromFile(path);
+        
+        var solver = new Solver(grid);
+        Assert.True(solver.Solve());
+        Assert.True(grid.IsSingleConnectedPath(), "Grid is not a single connected path");
 
-        Assert.Equal(3, totalTracks);
+        for (int r = 0; r < grid.Rows; r++)
+            Assert.True(grid.TrackCountInRow(r) == grid.RowCounts[r],
+                        $"Row {r} has {grid.TrackCountInRow(r)} vs expected {grid.RowCounts[r]}");
+        for (int c = 0; c < grid.Cols; c++)
+            Assert.True(grid.TrackCountInCol(c) == grid.ColCounts[c],
+                        $"Col {c} has {grid.TrackCountInCol(c)} vs expected {grid.ColCounts[c]}");        
     }
 }

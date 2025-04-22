@@ -8,22 +8,46 @@ namespace TrainTrackRunner
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Train Tracks Solver - Part 1\n");
+            Console.WriteLine("Train Tracks Solver\n");
 
-            int[] rowCounts = { 2, 1, 3 };
-            int[] colCounts = { 1, 2, 3 };
+            if (args.Length != 1)
+            {
+                Console.WriteLine("Usage: TrainTrackRunner <puzzle-file-path>");
+                return;
+            }
 
-            var grid = new Grid(3, 3, rowCounts, colCounts);
+            string path = args[0];
+            Grid grid;
+            try
+            {
+                grid = Grid.LoadFromFile(path);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading puzzle: {ex.Message}");
+                return;
+            }
+
             var solver = new Solver(grid);
 
-            if (solver.Solve())
+            solver.ProgressCallback = count =>
             {
-                Console.WriteLine("Solved:");
+                Console.Clear();
+                Console.WriteLine($"Attempted paths: {count}");
+                grid.Print();
+            };
+
+            bool solved = solver.Solve();
+            Console.Clear();
+
+            if (solved)
+            {
+                Console.WriteLine($"Solved in {solver.AttemptCount}:");
                 grid.Print();
             }
             else
             {
-                Console.WriteLine("No solution found.");
+                Console.WriteLine($"No solution found in {solver.AttemptCount} attempts.");
             }
         }
     }
