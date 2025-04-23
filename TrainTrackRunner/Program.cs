@@ -21,6 +21,8 @@ namespace TrainTrackRunner
             try
             {
                 grid = Grid.LoadFromFile(path);
+                grid.Print();
+                Console.ReadKey();
             }
             catch (Exception ex)
             {
@@ -28,7 +30,8 @@ namespace TrainTrackRunner
                 return;
             }
 
-            var solver = new Solver(grid);
+
+            PathBuilderSolver solver = new PathBuilderSolver(grid);
 
             solver.ProgressCallback = count =>
             {
@@ -42,12 +45,12 @@ namespace TrainTrackRunner
 
             if (solved)
             {
-                Console.WriteLine($"Solved in {solver.AttemptCount}:");
+                Console.WriteLine($"Path Builder Solver found a solution in {solver.AttemptCount}:");
                 grid.Print();
             }
             else
             {
-                Console.WriteLine($"No solution found in {solver.AttemptCount} attempts.");
+                Console.WriteLine($"Path Builder Solver could not find a solution in {solver.AttemptCount}.");
             }
         }
     }

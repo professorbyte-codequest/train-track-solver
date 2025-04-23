@@ -193,12 +193,12 @@ public class Grid
     /// </summary>
     public void Print()
     {
-        Console.WriteLine("  " + string.Join(' ', ColCounts));
+        //Console.WriteLine("  " + string.Join(' ', ColCounts));
         for (int r = 0; r < Rows; r++)
         {
-            Console.Write(RowCounts[r] + " ");
+            //Console.Write(RowCounts[r] + " ");
             for (int c = 0; c < Cols; c++)
-                Console.Write(Symbol(Board[r,c]) + " ");
+                Console.Write(Symbol(Board[r,c]));
             Console.WriteLine();
         }
     }
@@ -341,7 +341,7 @@ public class Grid
             }
         }
 
-        // Check if all non-blocked, non-empty cells were visited
+        // Check if all, non-empty cells were visited
         for (int r = 0; r < Rows; r++)
             for (int c = 0; c < Cols; c++)
                 if (!IsEmpty(r, c) && !visited[r, c])
@@ -370,6 +370,17 @@ public class Grid
             if (placed > ColCounts[c] || placed + empty < ColCounts[c])
                 return false;
         }
+        return true;
+    }
+
+    public bool TrackCountInAllRowsColsMatch()
+    {
+        for (int i = 0; i < Rows; i++)
+            if (TrackCountInRow(i) != RowCounts[i])
+                return false;
+        for (int j = 0; j < Cols; j++)
+            if (TrackCountInCol(j) != ColCounts[j])
+                return false;
         return true;
     }
 }

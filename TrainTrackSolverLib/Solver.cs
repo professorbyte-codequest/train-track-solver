@@ -98,17 +98,7 @@ public class Solver
     /// <returns></returns>
     private bool IsComplete()
     {
-        // Ensure row counts are satisfied
-        for (int r = 0; r < _grid.Rows; r++)
-            if (_grid.TrackCountInRow(r) != _grid.RowCounts[r])
-                return false;
-
-        // Ensure column counts are satisfied
-        for (int c = 0; c < _grid.Cols; c++)
-            if (_grid.TrackCountInCol(c) != _grid.ColCounts[c])
-                return false;
-
-        // Ensure a single path exists
-        return _grid.IsSingleConnectedPath();
+        // Ensure a single path exists and all constraints are satisfied
+        return _grid.TrackCountInAllRowsColsMatch() && _grid.IsSingleConnectedPath();
     }
 }

@@ -1,0 +1,15 @@
+# 12x12 Shape
+COLS: 5 10 5 4 5 8 6 6 4 3 4 5
+ROWS: 5 1 2 3 8 4 6 7 7 10 7 4
+FIXED:
+0, 5: CornerNW
+3, 6: CornerSW
+5, 10: CornerSE
+5, 11: CornerNW
+7, 1: Vertical
+7, 5: CornerNW
+8, 9: Horizontal
+9, 0: CornerSE
+9, 3: Horizontal
+10, 11: CornerNE
+11, 4: CornerNE
