@@ -13,6 +13,7 @@ namespace TrainTrackSolverLib
         private readonly (int r, int c, (int dr, int dc) incoming) _entry;
         private readonly List<(int r, int c)> _fixedPositions;
         private readonly int _targetFixedCount;
+        private readonly int _totalCount;
 
         // Progress reporting
         private long _attemptCount;
@@ -59,6 +60,8 @@ namespace TrainTrackSolverLib
             // Pick either entry - they are interchangeable
             _entry = entries[0];
             _targetFixedCount = _fixedPositions.Count;
+
+            _totalCount = grid.RowCounts.Sum();
         }
 
         /// <summary>
@@ -82,6 +85,11 @@ namespace TrainTrackSolverLib
             if (!_grid.IsInBounds(r, c) || visited.Contains((r, c)))
                 return false;
 
+            // Early total-piece check: avoid growing past the required number of pieces
+            // visited.Count here is count of nodes in current path thus far
+            if (visited.Count >= _totalCount)
+                return false;
+
             var existing = _grid.Board[r, c];
 
             // If this cell is a fixed piece, check alignment
@@ -100,6 +108,11 @@ namespace TrainTrackSolverLib
             {
                 return true;
             }
+            
+            // Precompute remaining fixed positions
+            var remaining = _fixedPositions
+                .Where(fp => !visited.Contains(fp))
+                .ToList();
 
             // Determine candidates: either the fixed piece or any placeable track
             IEnumerable<PieceType> candidates = existing != PieceType.Empty
@@ -118,8 +131,20 @@ namespace TrainTrackSolverLib
                     placed = true;
                 }
 
+                // Sort outgoing by Manhattan distance to nearest remaining fixed
+                var directions = TrackConnections.GetConnections(piece)
+                    .Where(d => !(d.dr == -incoming.dr && d.dc == -incoming.dc))
+                    .OrderBy(d =>
+                    {
+                        var nr = r + d.dr;
+                        var nc = c + d.dc;
+                        return remaining.Count == 0
+                            ? 0
+                            : remaining.Min(fp => Math.Abs(fp.r - nr) + Math.Abs(fp.c - nc));
+                    });
+
                 // Explore outgoing connections, avoid going backward
-                foreach (var (dr, dc) in TrackConnections.GetConnections(piece))
+                foreach (var (dr, dc) in directions)
                 {
                     if (dr == -incoming.dr && dc == -incoming.dc)
                         continue;

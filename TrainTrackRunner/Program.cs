@@ -51,6 +51,24 @@ namespace TrainTrackRunner
             else
             {
                 Console.WriteLine($"Path Builder Solver could not find a solution in {solver.AttemptCount}.");
+            
+                Solver solver2 = new Solver(grid);
+                solver2.ProgressCallback = count =>
+                {
+                    Console.Clear();
+                    Console.WriteLine($"Attempted paths: {count}");
+                    grid.Print();
+                };
+                solved = solver2.Solve();
+                Console.Clear();
+
+                if (solved) {
+                    Console.WriteLine($"Solver found a solution in {solver2.AttemptCount}:");
+                    grid.Print();
+                }
+                else {
+                    Console.WriteLine($"Solver could not find a solution in {solver2.AttemptCount}.");
+                }
             }
         }
     }
