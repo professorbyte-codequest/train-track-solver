@@ -5,9 +5,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
+using TrainTrackSolverLib.Common;
+
 namespace TrainTrackSolverLib
 {
-    public class PathBuilderSolver
+    public class PathBuilderSolver : ISolver
     {
         private readonly Grid _grid;
         private readonly (int r, int c, (int dr, int dc) incoming) _entry;
@@ -16,15 +18,15 @@ namespace TrainTrackSolverLib
         private readonly int _totalCount;
 
         // Progress reporting
+        private readonly IProgressReporter _progressReporter;
         private long _attemptCount;
-        public Action<long>? 
-        ProgressCallback { get; set; }
-        private const long ProgressInterval = 100;
-        public long AttemptCount => _attemptCount;
+        public long IterationCount => _attemptCount;
 
-        public PathBuilderSolver(Grid grid)
+        public PathBuilderSolver(Grid grid, IProgressReporter reporter)
         {
             _grid = grid;
+            _progressReporter = reporter;
+            _attemptCount = 0;
 
             // Collect all pre-placed (fixed) track positions
             _fixedPositions = new List<(int, int)>();
@@ -78,8 +80,8 @@ namespace TrainTrackSolverLib
         {
             // Report progress
             _attemptCount++;
-            if (ProgressCallback != null && _attemptCount % ProgressInterval == 0)
-                ProgressCallback.Invoke(_attemptCount);
+            if (_attemptCount % _progressReporter.ProgressInterval == 0)
+                _progressReporter.Report(_attemptCount);
 
             // Bounds & revisit check
             if (!_grid.IsInBounds(r, c) || visited.Contains((r, c)))
@@ -108,7 +110,7 @@ namespace TrainTrackSolverLib
             {
                 return true;
             }
-            
+
             // Precompute remaining fixed positions
             var remaining = _fixedPositions
                 .Where(fp => !visited.Contains(fp))

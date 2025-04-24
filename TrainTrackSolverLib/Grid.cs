@@ -15,6 +15,14 @@ public class Grid
     private readonly int[] _placedInRow;
     private readonly int[] _placedInCol;
 
+    private readonly int _totalCount;
+
+    public int TotalCount => _totalCount;
+
+    public int PlacedCount => _placedInRow.Sum();
+    public int PlacedInRow(int r) { return _placedInRow[r]; }
+    public int PlacedInCol(int c) { return _placedInCol[c]; }
+
     /// <summary>
     /// Create a new grid with the specified dimensions and row/column constraints.
     /// </summary>
@@ -31,6 +39,14 @@ public class Grid
         Board = new PieceType[rows, cols];
         _placedInRow = new int[rows];
         _placedInCol = new int[cols];
+
+        // Check if the grid is valid
+        ValidateRowColCounts();
+
+        // Calculate the total count of pieces
+        _totalCount = 0;
+        foreach (var count in rowCounts)
+            _totalCount += count;
     }
 
     /// <summary>
@@ -272,6 +288,9 @@ public class Grid
         foreach (var (rr, cc, pt) in fixedList)
             grid.Place(rr, cc, pt);
 
+        // Check if the grid is valid
+        grid.ValidateRowColCounts();
+
         return grid;
     }
 
@@ -382,5 +401,51 @@ public class Grid
             if (TrackCountInCol(j) != ColCounts[j])
                 return false;
         return true;
+    }
+
+    public Grid Clone()
+    {
+        var clone = new Grid(Rows, Cols, RowCounts, ColCounts);
+        for (int r = 0; r < Rows; r++)
+            for (int c = 0; c < Cols; c++)
+                clone.Board[r, c] = Board[r, c];
+        Array.Copy(_placedInRow, clone._placedInRow, Rows);
+        Array.Copy(_placedInCol, clone._placedInCol, Cols);
+        return clone;
+    }
+
+    public void CopyTo(Grid other)
+    {
+        if (Rows != other.Rows || Cols != other.Cols)
+            throw new ArgumentException("Grids must be the same size");
+        for (int r = 0; r < Rows; r++)
+            for (int c = 0; c < Cols; c++)
+                other.Board[r, c] = Board[r, c];
+        Array.Copy(_placedInRow, other._placedInRow, Rows);
+        Array.Copy(_placedInCol, other._placedInCol, Cols);
+    }
+
+    private void ValidateRowColCounts()
+    {
+        if (RowCounts.Length != Rows)
+            throw new ArgumentException("RowCounts length must match number of rows");
+        if (ColCounts.Length != Cols)
+            throw new ArgumentException("ColCounts length must match number of columns");
+
+        long totalCount = 0;
+        for (int i = 0; i < Rows; i++)
+            if (RowCounts[i] < 0)
+                throw new ArgumentOutOfRangeException($"RowCounts[{i}] must be non-negative");
+            else
+                totalCount += RowCounts[i];
+
+        for (int j = 0; j < Cols; j++)
+            if (ColCounts[j] < 0)
+                throw new ArgumentOutOfRangeException($"ColCounts[{j}] must be non-negative");
+            else
+                totalCount -= ColCounts[j];
+
+        if (totalCount != 0)
+            throw new InvalidOperationException("Row and column counts do not match");
     }
 }

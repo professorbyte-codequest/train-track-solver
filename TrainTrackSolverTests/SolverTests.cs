@@ -2,15 +2,45 @@ namespace TrainTrackSolverTests;
 
 // TrainTrackSolverTests - Unit tests for the TrainTrackSolverLib
 using TrainTrackSolverLib;
+using TrainTrackSolverLib.Common;
 using Xunit;
 
 public class SolverTests
 { 
+
+    private class NullProgressReporter : IProgressReporter
+    {
+        public long ProgressInterval { get; set; } = 1000;
+
+        public void Report(long iterations)
+        {
+            // No-op
+        }
+    }
+
     private string WritePuzzle(string content)
     {
         var path = Path.GetTempFileName();
         File.WriteAllText(path, content);
         return path;
+    }
+
+    private void AssertSolvesGrid(string path)
+    {
+        var grid = Grid.LoadFromFile(path);
+        var solver = new Solver(grid, new NullProgressReporter());
+        Assert.True(solver.Solve());
+        Assert.True(grid.IsSingleConnectedPath());
+
+        grid = Grid.LoadFromFile(path);
+        var solver2 = new AStarSolver(grid, new NullProgressReporter());
+        Assert.True(solver2.Solve());
+        Assert.True(grid.IsSingleConnectedPath());
+
+        grid = Grid.LoadFromFile(path);
+        var solver3 = new PathBuilderSolver(grid, new NullProgressReporter());
+        Assert.True(solver3.Solve());
+        Assert.True(grid.IsSingleConnectedPath());
     }
 
     [Fact]
@@ -25,11 +55,7 @@ public class SolverTests
             0,1: Vertical
             2,1: Vertical
             """;
-        var path = WritePuzzle(puzzle);
-        var grid = Grid.LoadFromFile(path);
-        var solver = new Solver(grid);
-        Assert.True(solver.Solve());
-        Assert.True(grid.IsSingleConnectedPath());
+        AssertSolvesGrid(WritePuzzle(puzzle));
     }
 
     [Fact]
@@ -44,11 +70,7 @@ public class SolverTests
             0,0: CornerNE
             4,4: CornerNE
             """;
-        var path = WritePuzzle(puzzle);
-        var grid = Grid.LoadFromFile(path);
-        var solver = new Solver(grid);
-        Assert.True(solver.Solve());
-        Assert.True(grid.IsSingleConnectedPath());
+        AssertSolvesGrid(WritePuzzle(puzzle));
     }
 
     [Fact]
@@ -63,11 +85,7 @@ public class SolverTests
             5,0: Horizontal
             5,9: Horizontal
             """;
-        var path = WritePuzzle(puzzle);
-        var grid = Grid.LoadFromFile(path);
-        var solver = new Solver(grid);
-        Assert.True(solver.Solve());
-        Assert.True(grid.IsSingleConnectedPath());
+        AssertSolvesGrid(WritePuzzle(puzzle));
     }
 
     [Fact]
@@ -84,18 +102,6 @@ public class SolverTests
             4, 0: Horizontal
             6, 2: CornerSE
             """;
-        var path = WritePuzzle(puzzle);
-        var grid = Grid.LoadFromFile(path);
-        
-        var solver = new Solver(grid);
-        Assert.True(solver.Solve());
-        Assert.True(grid.IsSingleConnectedPath(), "Grid is not a single connected path");
-
-        for (int r = 0; r < grid.Rows; r++)
-            Assert.True(grid.TrackCountInRow(r) == grid.RowCounts[r],
-                        $"Row {r} has {grid.TrackCountInRow(r)} vs expected {grid.RowCounts[r]}");
-        for (int c = 0; c < grid.Cols; c++)
-            Assert.True(grid.TrackCountInCol(c) == grid.ColCounts[c],
-                        $"Col {c} has {grid.TrackCountInCol(c)} vs expected {grid.ColCounts[c]}");        
+        AssertSolvesGrid(WritePuzzle(puzzle));
     }
 }

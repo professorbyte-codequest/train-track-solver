@@ -1,25 +1,27 @@
 using System.Data.Common;
 
+using TrainTrackSolverLib.Common;
+
 namespace TrainTrackSolverLib;
-public class Solver
+public class Solver : ISolver
 {
     private readonly Grid _grid;
 
     // Progress reporting
     private long _attemptCount;
-    public Action<long>? 
-    ProgressCallback { get; set; }
-    private const long ProgressInterval = 10000;
+    IProgressReporter _progressReporter;
 
-    public long AttemptCount => _attemptCount;
+    public long IterationCount => _attemptCount;
 
     /// <summary>
     /// Constructor for the Solver class.
     /// </summary>
     /// <param name="grid">Grid to solve for</param>
-    public Solver(Grid grid)
+    public Solver(Grid grid, IProgressReporter reporter)
     {
         _grid = grid;
+        _progressReporter = reporter;
+        _attemptCount = 0;
     }
 
     /// <summary>
@@ -33,8 +35,8 @@ public class Solver
     {
         // Report progress
         _attemptCount++;
-        if (ProgressCallback != null && _attemptCount % ProgressInterval == 0)
-            ProgressCallback.Invoke(_attemptCount);
+        if (_attemptCount % _progressReporter.ProgressInterval == 0)
+            _progressReporter.Report(_attemptCount);
 
         // Prune infeasible branches early
         if (!_grid.CanStillSatisfy()) return false;

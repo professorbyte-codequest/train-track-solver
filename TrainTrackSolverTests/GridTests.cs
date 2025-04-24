@@ -18,7 +18,7 @@ public class GridTests
     [Fact]
     public void CanPlace_EnforcesRowAndColLimits()
     {
-        var grid = new Grid(3, 3, new[] { 1, 1, 1 }, new[] { 2, 1, 1 });
+        var grid = new Grid(3, 3, new[] { 1, 2, 1 }, new[] { 2, 1, 1 });
 
         grid.Place(0, 0, PieceType.Vertical);
 
@@ -75,7 +75,7 @@ public class GridTests
     [Fact]
     public void CanPlace_AllowsMatchingNeighbor()
     {
-        var grid = new Grid(3, 3, new[]{2,0,0}, new[]{1,1,1});
+        var grid = new Grid(3, 3, new[]{3,0,0}, new[]{1,1,1});
         grid.Place(0,0, PieceType.Horizontal);
         // Place horizontal at (0,1)
         Assert.True(grid.CanPlace(0,1, PieceType.Horizontal));
