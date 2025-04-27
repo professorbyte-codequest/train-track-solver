@@ -50,12 +50,54 @@ public class Grid
     }
 
     /// <summary>
+    /// Create a new grid with the specified dimensions.
+    /// This constructor is used for generating a new grid without any constraints. 
+    /// </summary>
+    /// <param name="rows">Number of rows</param>
+    /// <param name="cols">Number of columns</param>
+    public Grid(int rows, int cols)
+    {
+        Rows = rows;
+        Cols = cols;
+        RowCounts = new int[rows];
+        ColCounts = new int[cols];
+        Board = new PieceType[rows, cols];
+        _placedInRow = new int[rows];
+        _placedInCol = new int[cols];
+    }
+
+    public void UpdateCounts() {
+        for (int r = 0; r < Rows; r++)
+            RowCounts[r] = 0;
+        for (int c = 0; c < Cols; c++)
+            ColCounts[c] = 0;
+
+        for (int r = 0; r < Rows; r++)
+            for (int c = 0; c < Cols; c++)
+                if (Board[r, c] != PieceType.Empty)
+                {
+                    RowCounts[r]++;
+                    ColCounts[c]++;
+                }
+    }
+
+    /// <summary>
     /// Check if a cell is within the bounds of the grid.
     /// </summary>
     /// <param name="r">Row index to check</param>
     /// <param name="c">Column index to check</param>
     /// <returns>True if the cell is inbounds, else false</returns>
     public bool IsInBounds(int r, int c) => r >= 0 && r < Rows && c >= 0 && c < Cols;
+
+    /// <summary>
+    /// Check if a cell is on the edge of the grid.
+    /// </summary>
+    /// <param name="r">Row index to check</param>
+    /// <param name="c">Column index to check</param>
+    /// <returns>True if the cell is on the edge, else false</returns>
+    public bool IsOnEdge(int r, int c)
+        => r == 0 || r == Rows - 1
+            || c == 0 || c == Cols - 1;
 
     /// <summary>
     /// Check if a cell is filled with a piece.
@@ -294,6 +336,18 @@ public class Grid
         return grid;
     }
 
+    public void SaveToFile(string path)
+    {
+        using var writer = new StreamWriter(path);
+        writer.WriteLine($"ROWS: {string.Join(' ', RowCounts)}");
+        writer.WriteLine($"COLS: {string.Join(' ', ColCounts)}");
+        writer.WriteLine("FIXED:");
+        for (int r = 0; r < Rows; r++)
+            for (int c = 0; c < Cols; c++)
+                if (Board[r, c] != PieceType.Empty)
+                    writer.WriteLine($"{r},{c}: {Board[r, c]}");
+    }
+
     /// <summary>
     /// Get all legal pieces that can be placed at a given cell.
     /// This includes all pieces that are not empty, and
@@ -447,5 +501,13 @@ public class Grid
 
         if (totalCount != 0)
             throw new InvalidOperationException("Row and column counts do not match");
+    }
+
+    public IEnumerable<(int,int)> EnumerateEdges()
+    {
+        for (int c = 0; c < Cols; c++) yield return (0,c);
+        for (int c = 0; c < Cols; c++) yield return (Rows-1,c);
+        for (int r = 0; r < Rows; r++) yield return (r,0);
+        for (int r = 0; r < Rows; r++) yield return (r,Cols-1);
     }
 }

@@ -44,9 +44,9 @@ namespace TrainTrackSolverLib
             var entries = new List<(int, int, (int, int))>();
             foreach (var (r, c) in _fixedPositions)
             {
-                if (!IsOnEdge(r, c)) continue;
+                if (!_grid.IsOnEdge(r, c)) continue;
                 var conns = TrackConnections.GetConnections(_grid.Board[r, c]);
-                var offDirs = conns.Where(d => !IsInBounds(r + d.dr, c + d.dc)).ToList();
+                var offDirs = conns.Where(d => !_grid.IsInBounds(r + d.dr, c + d.dc)).ToList();
                 if (offDirs.Count == 1)
                 {
                     // Incoming direction is from off-grid into this cell
@@ -105,7 +105,7 @@ namespace TrainTrackSolverLib
             visited.Add((r, c));
 
             // If we've connected all fixed pieces and are back at an edge, check counts
-            if (fixedHit == _targetFixedCount && IsOnEdge(r, c)
+            if (fixedHit == _targetFixedCount && _grid.IsOnEdge(r, c)
                 && _grid.TrackCountInAllRowsColsMatch())
             {
                 return true;
@@ -162,12 +162,5 @@ namespace TrainTrackSolverLib
             visited.Remove((r, c));
             return false;
         }
-
-        private bool IsOnEdge(int r, int c)
-            => r == 0 || r == _grid.Rows - 1
-               || c == 0 || c == _grid.Cols - 1;
-
-        private bool IsInBounds(int r, int c)
-            => r >= 0 && r < _grid.Rows && c >= 0 && c < _grid.Cols;
     }
 }

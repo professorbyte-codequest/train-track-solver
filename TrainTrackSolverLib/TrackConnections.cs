@@ -40,6 +40,21 @@ public static class TrackConnections
     public static IEnumerable<(int dr, int dc)> GetConnections(PieceType type) =>
         Directions.TryGetValue(type, out var dirs) ? dirs : Array.Empty<(int, int)>();
 
+    /// <summary>
+    /// Finds a PieceType whose connections exactly include both directions.
+    /// </summary>
+    public static PieceType GetPieceForDirs((int dr,int dc) d1, (int dr,int dc) d2)
+    {
+        foreach (PieceType p in Enum.GetValues(typeof(PieceType)))
+        {
+            if (p == PieceType.Empty) continue;
+            var conns = GetConnections(p);
+            if (conns.Contains(d1) && conns.Contains(d2))
+                return p;
+        }
+        throw new InvalidOperationException($"No piece connects dirs {d1} & {d2}");
+    }
+
 
     /// <summary>
     /// Check if a piece type can connect to a given direction.

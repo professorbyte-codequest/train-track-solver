@@ -39,9 +39,9 @@ namespace TrainTrackSolverLib
             var entries = new List<(int, int, (int, int))>();
             foreach (var (r, c) in _fixedPositions)
             {
-                if (!IsOnEdge(r, c)) continue;
+                if (!grid.IsOnEdge(r, c)) continue;
                 var conns = TrackConnections.GetConnections(grid.Board[r, c]);
-                var offDirs = conns.Where(d => !IsInBounds(r + d.dr, c + d.dc)).ToList();
+                var offDirs = conns.Where(d => !grid.IsInBounds(r + d.dr, c + d.dc)).ToList();
                 if (offDirs.Count == 1)
                     entries.Add((r, c, (-offDirs[0].dr, -offDirs[0].dc)));
             }
@@ -127,7 +127,7 @@ namespace TrainTrackSolverLib
                         continue;
 
                     int nr = r + dr, nc = c + dc;
-                    if (!IsInBounds(nr, nc) || visited.Contains((nr, nc)))
+                    if (!newGrid.IsInBounds(nr, nc) || visited.Contains((nr, nc)))
                         continue;
 
                     yield return new State(newGrid, nr, nc, (dr, dc), visited, fixedHit, state.G + 1);
@@ -230,14 +230,8 @@ namespace TrainTrackSolverLib
 
         private bool IsGoal(State s)
             => s.FixedHit == _targetFixedCount
-               && IsOnEdge(s.R, s.C)
+               && s.GridState.IsOnEdge(s.R, s.C)
                && s.GridState.TrackCountInAllRowsColsMatch();
-
-        private bool IsOnEdge(int r, int c)
-            => r == 0 || r == _initialGrid.Rows - 1 || c == 0 || c == _initialGrid.Cols - 1;
-
-        private bool IsInBounds(int r, int c)
-            => r >= 0 && r < _initialGrid.Rows && c >= 0 && c < _initialGrid.Cols;
 
         private readonly struct StateSignature : IEquatable<StateSignature>
         {
