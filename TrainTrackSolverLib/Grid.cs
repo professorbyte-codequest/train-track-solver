@@ -249,14 +249,17 @@ public class Grid
     /// <summary>
     /// Print the grid to the console.
     /// </summary>
-    public void Print()
+    public void Print(bool showCounts = false)
     {
-        //Console.WriteLine("  " + string.Join(' ', ColCounts));
+        if (showCounts) Console.WriteLine("  " + string.Join(' ', ColCounts));
+        Console.WriteLine();
         for (int r = 0; r < Rows; r++)
         {
-            //Console.Write(RowCounts[r] + " ");
-            for (int c = 0; c < Cols; c++)
+            if (showCounts) Console.Write(RowCounts[r] + " ");
+            for (int c = 0; c < Cols; c++) {
                 Console.Write(Symbol(Board[r,c]));
+                if (showCounts) Console.Write(" ");
+            }
             Console.WriteLine();
         }
     }
@@ -501,6 +504,23 @@ public class Grid
 
         if (totalCount != 0)
             throw new InvalidOperationException("Row and column counts do not match");
+    }
+
+    public List<(int, int, (int, int))> FindEntryPoints(List<(int r, int c)> fixedPositions)
+    {
+        // Find edge entry points
+        var entries = new List<(int, int, (int, int))>();
+        foreach (var (r, c) in fixedPositions)
+        {
+            if (!IsOnEdge(r, c)) continue;
+            var conns = TrackConnections.GetConnections(Board[r, c]);
+            var offDirs = conns.Where(d => !IsInBounds(r + d.dr, c + d.dc)).ToList();
+            if (offDirs.Count == 1)
+                entries.Add((r, c, (-offDirs[0].dr, -offDirs[0].dc)));
+        }
+        if (entries.Count != 2)
+            throw new InvalidOperationException($"Expected 2 entry points, found {entries.Count}");
+        return entries;
     }
 
     public IEnumerable<(int,int)> EnumerateEdges()

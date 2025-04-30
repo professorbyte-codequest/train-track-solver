@@ -35,19 +35,7 @@ namespace TrainTrackSolverLib
                     if (grid.Board[r, c] != PieceType.Empty)
                         _fixedPositions.Add((r, c));
 
-            // Find edge entry points
-            var entries = new List<(int, int, (int, int))>();
-            foreach (var (r, c) in _fixedPositions)
-            {
-                if (!grid.IsOnEdge(r, c)) continue;
-                var conns = TrackConnections.GetConnections(grid.Board[r, c]);
-                var offDirs = conns.Where(d => !grid.IsInBounds(r + d.dr, c + d.dc)).ToList();
-                if (offDirs.Count == 1)
-                    entries.Add((r, c, (-offDirs[0].dr, -offDirs[0].dc)));
-            }
-            if (entries.Count != 2)
-                throw new InvalidOperationException($"Expected 2 entry points, found {entries.Count}");
-            _entry = entries[0];
+            _entry = grid.FindEntryPoints(_fixedPositions).First();
 
             _targetFixedCount = _fixedPositions.Count;
         }

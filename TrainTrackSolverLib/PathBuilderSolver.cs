@@ -40,27 +40,8 @@ namespace TrainTrackSolverLib
                 }
             }
 
-            // Identify exactly two edge entries: fixed pieces with one off-grid connection
-            var entries = new List<(int, int, (int, int))>();
-            foreach (var (r, c) in _fixedPositions)
-            {
-                if (!_grid.IsOnEdge(r, c)) continue;
-                var conns = TrackConnections.GetConnections(_grid.Board[r, c]);
-                var offDirs = conns.Where(d => !_grid.IsInBounds(r + d.dr, c + d.dc)).ToList();
-                if (offDirs.Count == 1)
-                {
-                    // Incoming direction is from off-grid into this cell
-                    var incoming = (-offDirs[0].dr, -offDirs[0].dc);
-                    entries.Add((r, c, incoming));
-                }
-            }
-
-            if (entries.Count != 2)
-                throw new InvalidOperationException(
-                    $"Expected exactly 2 entry points, found {entries.Count}.");
-
             // Pick either entry - they are interchangeable
-            _entry = entries[0];
+            _entry = grid.FindEntryPoints(_fixedPositions).First();
             _targetFixedCount = _fixedPositions.Count;
 
             _totalCount = grid.RowCounts.Sum();
