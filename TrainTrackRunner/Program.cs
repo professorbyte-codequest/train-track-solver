@@ -32,26 +32,60 @@ namespace TrainTrackRunner
 
         static void Main(string[] args)
         {
-                        Console.WriteLine("Train Tracks Solver\n");
-            if (args.Length < 1 || args.Length > 2)
+            Console.WriteLine("Train Tracks Solver\n");
+            if (args.Length < 1 || args.Length > 5)
             {
-                Console.WriteLine("Usage: TrainTrackRunner <puzzle-file-path> [path|pq|astar|benchmark]");
+                Console.WriteLine("Usage: TrainTrackRunner <puzzle-file-path> [path|pq|astar|benchmark|generate] [rows] [cols] [fixedCount]");
                 return;
             }
 
             var path = args[0];
             var mode = args.Length > 1 ? args[1].ToLower() : "path";
-            if (mode != "path" && mode != "pq" && mode != "astar" && mode != "benchmark")
+            if (mode != "path" && mode != "pq" && mode != "astar" && mode != "benchmark" && mode != "generate")
             {
-                Console.WriteLine("Invalid mode. Use 'path', 'pq', 'astar', or 'benchmark'.");
+                Console.WriteLine("Invalid mode. Use 'path', 'pq', 'astar', 'benchmark', or 'generate'.");
                 return;
             }
 
-            if (mode == "benchmark")
+            long interval;
+            if (mode == "generate")
+            {
+                Console.Clear();
+                Console.WriteLine("Generating a random puzzle...");
+
+                var rows = args.Length > 2 ? int.Parse(args[2]) : 10;
+                var cols = args.Length > 3 ? int.Parse(args[3]) : 10;
+                var fixedCount = args.Length > 4 ? int.Parse(args[4]) : 7;
+                var newgrid = PuzzleGenerator.Generate(rows, cols, fixedCount);
+                newgrid.Print(true);
+
+                newgrid.SaveToFile(path);
+                Console.WriteLine($"Puzzle saved to {path}");
+                return;
+            }
+            else if (mode == "benchmark")
             {
                 RunBenchmark(path);
                 return;
+            } else if (mode == "path")
+            {
+                interval = 100L;
             }
+            else if (mode == "pq")
+            {
+                interval = 10000L;
+            }
+            else if (mode == "astar")
+            {
+                interval = 100L;
+            }
+            else
+            {
+                Console.WriteLine("Invalid mode. Use 'path', 'pq', 'astar', 'benchmark', or 'generate'.");
+                return;
+            }
+            
+            Console.Clear();
 
             // Single-solver mode
             Grid grid;
@@ -70,12 +104,6 @@ namespace TrainTrackRunner
                 "pq"   => new Solver(grid, progressReporter),
                 "astar"=>  new AStarSolver(grid, progressReporter),
                 _       => new PathBuilderSolver(grid, progressReporter)
-            };
-            // Set progress interval based on algorithm
-            var interval = mode switch
-            {
-                "pq"   => (10000L),
-                _      => (100L),
             };
 
             progressReporter.ProgressInterval = interval;
