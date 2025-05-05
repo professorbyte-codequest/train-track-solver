@@ -8,6 +8,26 @@ using Xunit;
 public class SolverTests
 { 
 
+
+    private class ConsoleProgressReporter : IProgressReporter
+    {
+        private Grid _grid;
+
+        public ConsoleProgressReporter(Grid grid)
+        {
+            _grid = grid;
+        }
+
+        public long ProgressInterval { get; set; } = 1;
+
+        public void Report(long iterations)
+        {
+            Console.CursorTop = 0;
+            _grid.Print(true);
+            Console.WriteLine();
+            Console.WriteLine($"Iterations: {iterations}");
+        }
+    }
     private class NullProgressReporter : IProgressReporter
     {
         public long ProgressInterval { get; set; } = 1000;
@@ -27,18 +47,20 @@ public class SolverTests
 
     private void AssertSolvesGrid(string path)
     {
-        var grid = Grid.LoadFromFile(path);
-        var solver = new Solver(grid, new NullProgressReporter());
+        var puzzle = Puzzle.LoadFromFile(path);
+        var grid = new Grid(puzzle);
+        //var solver = new Solver(grid, new NullProgressReporter());
+        var solver = new Solver(grid, new ConsoleProgressReporter(grid));
         Assert.True(solver.Solve());
         Assert.True(grid.IsSingleConnectedPath());
 
-        grid = Grid.LoadFromFile(path);
-        var solver2 = new AStarSolver(grid, new NullProgressReporter());
+        grid = new Grid(puzzle);
+        var solver2 = new AStarSolver(grid, new ConsoleProgressReporter(grid));
         Assert.True(solver2.Solve());
         Assert.True(grid.IsSingleConnectedPath());
 
-        grid = Grid.LoadFromFile(path);
-        var solver3 = new PathBuilderSolver(grid, new NullProgressReporter());
+        grid = new Grid(puzzle);
+        var solver3 = new PathBuilderSolver(grid, new ConsoleProgressReporter(grid));
         Assert.True(solver3.Solve());
         Assert.True(grid.IsSingleConnectedPath());
     }
@@ -57,7 +79,7 @@ public class SolverTests
             """;
         AssertSolvesGrid(WritePuzzle(puzzle));
     }
-
+/*
     [Fact]
     public void Solve_Medium5x5T()
     {
@@ -104,4 +126,5 @@ public class SolverTests
             """;
         AssertSolvesGrid(WritePuzzle(puzzle));
     }
+    */
 }

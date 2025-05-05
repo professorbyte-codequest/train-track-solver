@@ -1,10 +1,6 @@
 // A new solver that starts from a fixed entry point (track piece on the edge with one off-grid connection)
 // and builds one continuous path through fixed pieces while respecting row/column counts.
-
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
+using System.Runtime.ExceptionServices;
 using TrainTrackSolverLib.Common;
 
 namespace TrainTrackSolverLib
@@ -12,10 +8,11 @@ namespace TrainTrackSolverLib
     public class PathBuilderSolver : ISolver
     {
         private readonly Grid _grid;
-        private readonly (int r, int c, (int dr, int dc) incoming) _entry;
-        private readonly List<(int r, int c)> _fixedPositions;
+        private readonly List<Point> _fixedPositions;
         private readonly int _targetFixedCount;
         private readonly int _totalCount;
+
+        private (int dr, int dc) _entryIncoming;
 
         // Progress reporting
         private readonly IProgressReporter _progressReporter;
@@ -29,34 +26,28 @@ namespace TrainTrackSolverLib
             _attemptCount = 0;
 
             // Collect all pre-placed (fixed) track positions
-            _fixedPositions = new List<(int, int)>();
-            for (int r = 0; r < grid.Rows; r++)
-            {
-                for (int c = 0; c < grid.Cols; c++)
-                {
-                    var p = grid.Board[r, c];
-                    if (p != PieceType.Empty)
-                        _fixedPositions.Add((r, c));
-                }
-            }
+            _fixedPositions = _grid.FixedPoints();
 
-            // Pick either entry - they are interchangeable
-            _entry = grid.FindEntryPoints(_fixedPositions).First();
             _targetFixedCount = _fixedPositions.Count;
 
             _totalCount = grid.RowCounts.Sum();
+
+            var connections = TrackConnections.GetConnections(_grid.Board[_grid.Entry.Y, _grid.Entry.X]);
+            _entryIncoming = connections.Where(fp => !_grid.IsInBounds(_grid.Entry + fp))
+                .Select(fp => (-fp.dr, -fp.dc))   
+                .First();
         }
 
         /// <summary>
         /// Attempts to solve by building a single path from the fixed entry.
         /// </summary>
         public bool Solve()
-            => TryBuild(_entry.r, _entry.c, _entry.incoming, new HashSet<(int, int)>(), 0);
+            => TryBuild(_grid.Entry, _entryIncoming, new HashSet<Point>(), 0);
 
         private bool TryBuild(
-            int r, int c,
+            Point pos,
             (int dr, int dc) incoming,
-            HashSet<(int, int)> visited,
+            HashSet<Point> visited,
             int fixedHit)
         {
             // Report progress
@@ -65,7 +56,7 @@ namespace TrainTrackSolverLib
                 _progressReporter.Report(_attemptCount);
 
             // Bounds & revisit check
-            if (!_grid.IsInBounds(r, c) || visited.Contains((r, c)))
+            if (!_grid.IsInBounds(pos) || visited.Contains(pos))
                 return false;
 
             // Early total-piece check: avoid growing past the required number of pieces
@@ -73,7 +64,7 @@ namespace TrainTrackSolverLib
             if (visited.Count >= _totalCount)
                 return false;
 
-            var existing = _grid.Board[r, c];
+            var existing = _grid.Board[pos.Y, pos.X];
 
             // If this cell is a fixed piece, check alignment
             if (existing != PieceType.Empty)
@@ -83,13 +74,13 @@ namespace TrainTrackSolverLib
                 fixedHit++;
             }
 
-            visited.Add((r, c));
+            visited.Add(pos);
 
-            // If we've connected all fixed pieces and are back at an edge, check counts
-            if (fixedHit == _targetFixedCount && _grid.IsOnEdge(r, c)
+            // If we've connected all fixed pieces, check counts
+            if (fixedHit == _targetFixedCount
                 && _grid.TrackCountInAllRowsColsMatch())
             {
-                return true;
+                return _grid.IsSingleConnectedPath();
             }
 
             // Precompute remaining fixed positions
@@ -103,14 +94,14 @@ namespace TrainTrackSolverLib
                 : Enum.GetValues(typeof(PieceType))
                       .Cast<PieceType>()
                       .Where(p => p != PieceType.Empty)
-                      .Where(p => _grid.CanPlace(r, c, p));
+                      .Where(p => _grid.CanPlace(pos, p));
 
             foreach (var piece in candidates)
             {
                 bool placed = false;
                 if (existing == PieceType.Empty)
                 {
-                    _grid.Place(r, c, piece);
+                    _grid.Place(pos, piece);
                     placed = true;
                 }
 
@@ -119,11 +110,10 @@ namespace TrainTrackSolverLib
                     .Where(d => !(d.dr == -incoming.dr && d.dc == -incoming.dc))
                     .OrderBy(d =>
                     {
-                        var nr = r + d.dr;
-                        var nc = c + d.dc;
+                        var next = pos + (d.dr, d.dc);
                         return remaining.Count == 0
                             ? 0
-                            : remaining.Min(fp => Math.Abs(fp.r - nr) + Math.Abs(fp.c - nc));
+                            : remaining.Min(fp => fp.ManhattanDistance(next));
                     });
 
                 // Explore outgoing connections, avoid going backward
@@ -132,15 +122,15 @@ namespace TrainTrackSolverLib
                     if (dr == -incoming.dr && dc == -incoming.dc)
                         continue;
 
-                    if (TryBuild(r + dr, c + dc, (dr, dc), visited, fixedHit))
+                    if (TryBuild(pos + (dr, dc), (dr, dc), visited, fixedHit))
                         return true;
                 }
 
                 if (placed)
-                    _grid.Remove(r, c);
+                    _grid.Remove(pos);
             }
 
-            visited.Remove((r, c));
+            visited.Remove(pos);
             return false;
         }
     }

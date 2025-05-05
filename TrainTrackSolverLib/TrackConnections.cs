@@ -55,7 +55,6 @@ public static class TrackConnections
         throw new InvalidOperationException($"No piece connects dirs {d1} & {d2}");
     }
 
-
     /// <summary>
     /// Check if a piece type can connect to a given direction.
     /// </summary>

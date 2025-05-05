@@ -2,52 +2,47 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO.Compression;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 
 public class Grid
 {
-    public int Rows { get; }
-    public int Cols { get; }
-    public PieceType[,] Board { get; }
-    public int[] RowCounts { get; }
-    public int[] ColCounts { get; }
+    public int Rows { get; private set;}
+    public int Cols { get; private set; }
 
-    private readonly int[] _placedInRow;
-    private readonly int[] _placedInCol;
+    private Grid() {}
+    
+    public PieceType[,] Board { get; private set; }
+    public PieceType this[int r, int c]
+    {
+        get => Board[r, c];
+        set => Board[r, c] = value;
+    }
+    public PieceType this[Point p]
+    {
+        get => Board[p.X, p.Y];
+        set => Board[p.X, p.Y] = value;
+    }
 
-    private readonly int _totalCount;
+    public Point Exit { get; private set; }
+    public Point Entry { get; private set; }
+
+
+    public int[] RowCounts { get; private set; }
+    public int[] ColCounts { get;  private set;}
+
+    private int[] _placedInRow;
+    private int[] _placedInCol;
+
+    private int _totalCount;
 
     public int TotalCount => _totalCount;
 
     public int PlacedCount => _placedInRow.Sum();
     public int PlacedInRow(int r) { return _placedInRow[r]; }
     public int PlacedInCol(int c) { return _placedInCol[c]; }
-
-    /// <summary>
-    /// Create a new grid with the specified dimensions and row/column constraints.
-    /// </summary>
-    /// <param name="rows">Number of rows</param>
-    /// <param name="cols">Number of columns</param>
-    /// <param name="rowCounts">Constraints for each row</param>
-    /// <param name="colCounts">Constraints for each column</param>
-    public Grid(int rows, int cols, int[] rowCounts, int[] colCounts)
-    {
-        Rows = rows;
-        Cols = cols;
-        RowCounts = rowCounts;
-        ColCounts = colCounts;
-        Board = new PieceType[rows, cols];
-        _placedInRow = new int[rows];
-        _placedInCol = new int[cols];
-
-        // Check if the grid is valid
-        ValidateRowColCounts();
-
-        // Calculate the total count of pieces
-        _totalCount = 0;
-        foreach (var count in rowCounts)
-            _totalCount += count;
-    }
 
     /// <summary>
     /// Create a new grid with the specified dimensions.
@@ -66,7 +61,75 @@ public class Grid
         _placedInCol = new int[cols];
     }
 
-    public void UpdateCounts() {
+    public Grid(Puzzle puzzle)
+    {
+        Cols = puzzle.GridWidth;
+        Rows = puzzle.GridHeight;
+        Board = new PieceType[Rows, Cols];
+
+        // Grid: RowCounts == verticalClues == Height
+        // Grid: ColCounts == horizontalClues == Width
+
+        ColCounts = puzzle.Data.verticalClues;
+        RowCounts = puzzle.Data.horizontalClues;
+
+        _placedInRow = new int[Rows];
+        _placedInCol = new int[Cols];
+
+        for (int r = 0; r < Rows; r++)
+        {
+            for (int c = 0; c < Cols; c++)
+            {
+                var piece = puzzle.Data.startingGrid[r * Cols + c];
+                if (piece == PieceType.Empty)
+                    Board[r, c] = PieceType.Empty;
+                else
+                    Place(r, c, piece);
+            }
+        }
+
+        // Find Entry and Exit
+        ExtractEntryAndExit();
+
+        // Check if the grid is valid
+        ValidateRowColCounts();
+
+        if (Entry == null || Exit == null)
+            throw new InvalidOperationException("Entry and Exit points not found");
+
+        // Calculate the total count of pieces
+        _totalCount = 0;
+        foreach (var count in RowCounts)
+            _totalCount += count;
+    }
+
+    private void ExtractEntryAndExit()
+    {
+        var edgePoints = EnumerateEdges()
+                    .Where(p => !IsEmpty(p.Item1, p.Item2))
+                    .ToList();
+        foreach (var point in edgePoints)
+        {
+            var conns = TrackConnections.GetConnections(Board[point.Item1, point.Item2]);
+            var offDirs = conns.Where(d => !IsInBounds(point.Item1 + d.dr, point.Item2 + d.dc)).ToList();
+            if (offDirs.Count == 1)
+            {
+                if (Entry == null) Entry = new Point(point.Item1, point.Item2);
+                else Exit = new Point(point.Item1, point.Item2);
+            }
+        }
+    }
+
+    public List<Point> FixedPoints() {
+        var fixedPoints = new List<Point>();
+        for (int r = 0; r < Rows; r++)
+            for (int c = 0; c < Cols; c++)
+                if (Board[r, c] != PieceType.Empty)
+                    fixedPoints.Add(new Point(r, c));
+        return fixedPoints;
+    }
+
+    public void FinalizeGrid() {
         for (int r = 0; r < Rows; r++)
             RowCounts[r] = 0;
         for (int c = 0; c < Cols; c++)
@@ -79,6 +142,8 @@ public class Grid
                     RowCounts[r]++;
                     ColCounts[c]++;
                 }
+
+        ExtractEntryAndExit();
     }
 
     /// <summary>
@@ -88,6 +153,7 @@ public class Grid
     /// <param name="c">Column index to check</param>
     /// <returns>True if the cell is inbounds, else false</returns>
     public bool IsInBounds(int r, int c) => r >= 0 && r < Rows && c >= 0 && c < Cols;
+    public bool IsInBounds(Point pos) => pos.Y >= 0 && pos.Y < Rows && pos.X >= 0 && pos.X < Cols;
 
     /// <summary>
     /// Check if a cell is on the edge of the grid.
@@ -99,6 +165,8 @@ public class Grid
         => r == 0 || r == Rows - 1
             || c == 0 || c == Cols - 1;
 
+    public bool IsOnEdge(Point p) => IsOnEdge(p.Y, p.X);
+
     /// <summary>
     /// Check if a cell is filled with a piece.
     /// </summary>
@@ -106,6 +174,7 @@ public class Grid
     /// <param name="c">Column index to check</param>
     /// <returns>True if the cell is not empty</returns>
     public bool IsFilled(int r, int c) => Board[r, c] != PieceType.Empty;
+    public bool IsFilled(Point p) => IsFilled(p.Y, p.X);
 
     /// <summary>
     ///  Check if a cell empty.
@@ -116,6 +185,7 @@ public class Grid
     /// <returns>True if the cell is empty</returns>
     public bool IsEmpty(int r, int c) =>
         Board[r, c] == PieceType.Empty;
+    public bool IsEmpty(Point p) => IsEmpty(p.Y, p.X);
 
     /// <summary>
     /// Get the number of pieces placed in a given row.
@@ -218,6 +288,8 @@ public class Grid
         return true;
     }
 
+    public bool CanPlace(Point p, PieceType piece) => CanPlace(p.Y, p.X, piece);
+
     /// <summary>
     /// Place a piece on the grid.
     /// </summary>
@@ -233,6 +305,8 @@ public class Grid
         _placedInRow[r]++;
     }
 
+    public void Place(Point p, PieceType piece) => Place(p.Y, p.X, piece);
+
     /// <summary>
     /// Remove a piece from the grid.
     /// </summary>
@@ -246,13 +320,15 @@ public class Grid
         Board[r, c] = PieceType.Empty;
     } 
 
+    public void Remove(Point p) => Remove(p.Y, p.X);
+
     /// <summary>
     /// Print the grid to the console.
     /// </summary>
     public void Print(bool showCounts = false)
     {
         if (showCounts) Console.WriteLine("  " + string.Join(' ', ColCounts));
-        Console.WriteLine();
+        else Console.WriteLine();
         for (int r = 0; r < Rows; r++)
         {
             if (showCounts) Console.Write(RowCounts[r] + " ");
@@ -282,76 +358,6 @@ public class Grid
     };
 
     /// <summary>
-    /// Load a grid from a file.
-    /// The file format is:
-    /// ROWS: 1 2 3
-    /// COLS: 1 2 3
-    /// FIXED:
-    /// 0,0: Horizontal
-    /// 1,1: Vertical
-    /// 2,2: CornerNE
-    /// 3,3: CornerNW
-    /// 4,4: CornerSE
-    /// 5,5: CornerSW
-    /// </summary>
-    /// <param name="path">File path to load from</param>
-    /// <returns>Deserialized grid</returns>
-    /// <exception cref="InvalidDataException">If data format is incorrect</exception>
-    public static Grid LoadFromFile(string path)
-    {
-        var lines = File.ReadAllLines(path)
-            .Select(l => l.Trim())
-            .Where(l => !string.IsNullOrEmpty(l) && !l.StartsWith("#"))
-            .ToList();
-
-        int[] rows = Array.Empty<int>();
-        int[] cols = Array.Empty<int>();
-        var fixedList = new List<(int r, int c, PieceType p)>();
-
-        foreach (var line in lines)
-        {
-            if (line.StartsWith("ROWS:"))
-                rows = line[5..].Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToArray();
-            else if (line.StartsWith("COLS:"))
-                cols = line[5..].Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToArray();
-            else if (line.Equals("FIXED:", StringComparison.OrdinalIgnoreCase))
-                continue;
-            else if (line.Contains(':'))
-            {
-                var parts = line.Split(':', 2);
-                var nums = parts[0].Split(',');
-                int rr = int.Parse(nums[0]);
-                int cc = int.Parse(nums[1]);
-                var pt = Enum.Parse<PieceType>(parts[1].Trim());
-                fixedList.Add((rr, cc, pt));
-            }
-        }
-        if (rows.Length == 0 || cols.Length == 0)
-            throw new InvalidDataException("Missing ROWS or COLS");
-
-        var grid = new Grid(rows.Length, cols.Length, rows, cols);
-        foreach (var (rr, cc, pt) in fixedList)
-            grid.Place(rr, cc, pt);
-
-        // Check if the grid is valid
-        grid.ValidateRowColCounts();
-
-        return grid;
-    }
-
-    public void SaveToFile(string path)
-    {
-        using var writer = new StreamWriter(path);
-        writer.WriteLine($"ROWS: {string.Join(' ', RowCounts)}");
-        writer.WriteLine($"COLS: {string.Join(' ', ColCounts)}");
-        writer.WriteLine("FIXED:");
-        for (int r = 0; r < Rows; r++)
-            for (int c = 0; c < Cols; c++)
-                if (Board[r, c] != PieceType.Empty)
-                    writer.WriteLine($"{r},{c}: {Board[r, c]}");
-    }
-
-    /// <summary>
     /// Get all legal pieces that can be placed at a given cell.
     /// This includes all pieces that are not empty, and
     /// that can be placed without violating the rules.
@@ -365,6 +371,7 @@ public class Grid
                     .Cast<PieceType>()
                     .Where(p => p != PieceType.Empty && CanPlace(r, c, p));
     }
+    public IEnumerable<PieceType> GetLegalPieces(Point p) => GetLegalPieces(p.Y, p.X);
 
     /// <summary>
     /// Find the first non-empty cell in the grid.
@@ -451,23 +458,38 @@ public class Grid
 
     public bool TrackCountInAllRowsColsMatch()
     {
-        for (int i = 0; i < Rows; i++)
-            if (TrackCountInRow(i) != RowCounts[i])
+        for (int i = 0; i < Rows; i++) {
+            if (TrackCountInRow(i) != RowCounts[i]) {
                 return false;
-        for (int j = 0; j < Cols; j++)
-            if (TrackCountInCol(j) != ColCounts[j])
+            }
+        }
+        for (int j = 0; j < Cols; j++) {
+            if (TrackCountInCol(j) != ColCounts[j]) {
                 return false;
+            }
+        }
         return true;
     }
 
     public Grid Clone()
     {
-        var clone = new Grid(Rows, Cols, RowCounts, ColCounts);
+        var clone = new Grid {
+            Rows = Rows,
+            Cols = Cols,
+            RowCounts = (int[])RowCounts.Clone(),
+            ColCounts = (int[])ColCounts.Clone(),
+            Board = new PieceType[Rows, Cols],
+            _placedInRow = new int[Rows],
+            _placedInCol = new int[Cols]
+        };
         for (int r = 0; r < Rows; r++)
             for (int c = 0; c < Cols; c++)
                 clone.Board[r, c] = Board[r, c];
         Array.Copy(_placedInRow, clone._placedInRow, Rows);
         Array.Copy(_placedInCol, clone._placedInCol, Cols);
+        clone.Entry = Entry;
+        clone.Exit = Exit;
+        clone._totalCount = _totalCount;
         return clone;
     }
 
@@ -485,9 +507,9 @@ public class Grid
     private void ValidateRowColCounts()
     {
         if (RowCounts.Length != Rows)
-            throw new ArgumentException("RowCounts length must match number of rows");
+            throw new ArgumentException($"RowCounts length {RowCounts.Length } must match number of rows {Rows}");
         if (ColCounts.Length != Cols)
-            throw new ArgumentException("ColCounts length must match number of columns");
+            throw new ArgumentException($"ColCounts length {ColCounts.Length} must match number of columns {Cols}");
 
         long totalCount = 0;
         for (int i = 0; i < Rows; i++)
@@ -504,23 +526,6 @@ public class Grid
 
         if (totalCount != 0)
             throw new InvalidOperationException("Row and column counts do not match");
-    }
-
-    public List<(int, int, (int, int))> FindEntryPoints(List<(int r, int c)> fixedPositions)
-    {
-        // Find edge entry points
-        var entries = new List<(int, int, (int, int))>();
-        foreach (var (r, c) in fixedPositions)
-        {
-            if (!IsOnEdge(r, c)) continue;
-            var conns = TrackConnections.GetConnections(Board[r, c]);
-            var offDirs = conns.Where(d => !IsInBounds(r + d.dr, c + d.dc)).ToList();
-            if (offDirs.Count == 1)
-                entries.Add((r, c, (-offDirs[0].dr, -offDirs[0].dc)));
-        }
-        if (entries.Count != 2)
-            throw new InvalidOperationException($"Expected 2 entry points, found {entries.Count}");
-        return entries;
     }
 
     public IEnumerable<(int,int)> EnumerateEdges()

@@ -6,17 +6,17 @@ namespace TrainTrackSolverLib;
 public enum PieceType
 {
     /// <summary>Empty piece, no track.</summary>
-    Empty,
+    Empty = 0,
     /// <summary>Horizontal track piece.</summary>
-    Horizontal,
+    Horizontal = 3,
     /// <summary>Vertical track piece.</summary>
-    Vertical,
+    Vertical = 4,
     /// <summary>Corner track piece, connecting north to east.</summary>
-    CornerNE,
-    /// <summary>Corner track piece, connecting north to west.</summary>
-    CornerNW,
+    CornerNE = 5,
     /// <summary>Corner track piece, connecting south to east.</summary>
-    CornerSE,
+    CornerSE = 6,
     /// <summary>Corner track piece, connecting south to west.</summary>
-    CornerSW,
+    CornerSW = 7,
+    /// <summary>Corner track piece, connecting north to west.</summary>
+    CornerNW = 8,
 }

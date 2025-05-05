@@ -4,6 +4,9 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using TrainTrackSolverLib;
 using TrainTrackSolverLib.Common;
+using CommandLine;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace TrainTrackRunner
 {
@@ -11,7 +14,7 @@ namespace TrainTrackRunner
     {
         private Grid _grid;
 
-        public long ProgressInterval { get; set; } = 1000;
+        public long ProgressInterval { get; set; } = 100000;
 
         public ConsoleProgressReporter(Grid grid)
         {
@@ -20,121 +23,161 @@ namespace TrainTrackRunner
 
         public void Report(long iterations)
         {
-            Console.Clear();
+            Console.CursorTop = 0;
+            _grid.Print(true);
+            Console.WriteLine();
+            Console.WriteLine();
             Console.WriteLine($"Progress: {iterations} iterations");
-            _grid.Print();
+            Console.WriteLine($"Total Count: {_grid.TotalCount}");
+            Console.WriteLine($"Placed Count: {_grid.PlacedCount}");
+            Console.WriteLine($"Entry {_grid.Entry}, Exit {_grid.Exit}");
         }
     }
 
     class Program
     {
-        private static readonly TimeSpan SolverTimeout = TimeSpan.FromMinutes(1);
+        private static readonly int DefaultTimeoutMinutes = 5;
+        private static readonly int DefaultProgressInterval = 1000000;
+
+        private TimeSpan SolverTimeout = TimeSpan.FromMinutes(DefaultTimeoutMinutes);
+
+        public class Options {
+            [Option('p', "puzzle", Required = true, HelpText = "Path to the puzzle file.")]
+            public string PuzzlePath { get; set; } = string.Empty;
+            [Option('x', "index", Required = false, Default = 0, HelpText = "Puzzle index to run.")]
+            public int PuzzleIndex { get; set; } = 0;
+
+            [Option('m', "mode", Required = false, Default = "path", HelpText = "Solver mode: path, astar, pq")]
+            public string SolverMode { get; set; } = "path";
+
+            [Option('i', "interval", Required = false, Default = 1000000, HelpText = "Progress interval in iterations.")]
+            public long ProgressInterval { get; set; } = DefaultProgressInterval;
+
+            [Option('b', "benchmark", Required = false, Default = false, HelpText = "Run benchmark on the puzzle.")]
+            public bool Benchmark { get; set; } = false;
+            [Option('g', "generate", Required = false, Default = false, HelpText = "Generate a new puzzle.")]
+            public bool Generate { get; set; } = false;
+            [Option('t', "timeout", Required = false, Default = 5, HelpText = "Solver timeout in minutes.")]
+            public int TimeoutMinutes { get; set; } = DefaultTimeoutMinutes;
+
+        }
+
+        static void runSinglePuzzleMode(Options options)
+        {
+            var path = options.PuzzlePath;
+            if (path.EndsWith(".txt"))
+            {
+                var puzzle = Puzzle.LoadFromFile(path);
+                var modes = options.SolverMode.Split(',');
+                foreach (var solverMode in modes)
+                {
+                    var grid = new Grid(puzzle);
+                    Console.WriteLine($"Loaded puzzle from {path}");
+                    Console.WriteLine($"Grid size: {grid.Rows} x {grid.Cols}");
+                    Console.WriteLine($"Entry: {grid.Entry}, Exit: {grid.Exit}");
+                    Console.WriteLine($"Total Count: {grid.TotalCount}");
+                    Console.WriteLine($"Placed Count: {grid.PlacedCount}");
+                    Console.WriteLine($"Solver mode: {solverMode}");
+                    grid.Print();
+                    Console.WriteLine("Press any key to start solving...");
+                    Console.ReadKey();
+                    Console.Clear();
+                    Console.WriteLine();
+                    solveGridWithSolver(grid, solverMode, options.ProgressInterval, options.TimeoutMinutes);
+                }
+            }
+            else
+            {
+                PuzzleManager.Path = path;
+                var puzzleManager = PuzzleManager.Instance;
+                var modes = options.SolverMode.Split(',');
+
+                foreach (var solverMode in modes)
+                {
+                    var grid = puzzleManager.GetPuzzle(options.PuzzleIndex);
+                    Console.WriteLine($"Loaded puzzle {options.PuzzleIndex} from {path}");
+                    Console.WriteLine($"Grid size: {grid.Rows} x {grid.Cols}");
+                    Console.WriteLine($"Entry: {grid.Entry}, Exit: {grid.Exit}");
+                    Console.WriteLine($"Total Count: {grid.TotalCount}");
+                    Console.WriteLine($"Placed Count: {grid.PlacedCount}");
+                    Console.WriteLine($"Solver mode: {solverMode}");
+                    grid.Print();
+                    Console.WriteLine("Press any key to start solving...");
+                    Console.ReadKey();
+                    Console.Clear();
+                    Console.WriteLine();
+                    solveGridWithSolver(grid, solverMode, options.ProgressInterval, options.TimeoutMinutes);
+                    Console.WriteLine("Press any key to continue...");
+                    Console.ReadKey();
+                }
+            }
+        }
+
+        static void runBenchmarkMode(Options options)
+        {
+            var path = options.PuzzlePath;
+            if (path.EndsWith(".txt"))
+            {
+                var puzzle = Puzzle.LoadFromFile(path);
+                var grid = new Grid(puzzle);
+                Console.WriteLine($"Loaded puzzle from {path}");
+                Console.WriteLine($"Grid size: {grid.Rows} x {grid.Cols}");
+                Console.WriteLine($"Entry: {grid.Entry}, Exit: {grid.Exit}");
+                Console.WriteLine($"Total Count: {grid.TotalCount}");
+                Console.WriteLine($"Placed Count: {grid.PlacedCount}");
+                grid.Print();
+                Console.WriteLine("Press any key to start solving...");
+                Console.ReadKey();
+                Console.Clear();
+                Console.WriteLine();
+                PrintHeader();
+                var modes = options.SolverMode.Split(',');
+                foreach (var solverMode in modes)
+                {
+                    RunBenchmark(grid, options.TimeoutMinutes, false, solverMode);
+                }
+            }
+            else
+            {
+                PuzzleManager.Path = path;
+                var puzzleManager = PuzzleManager.Instance;
+                Console.WriteLine();
+                Console.WriteLine($"Loaded puzzle manager from {path}");
+                Console.WriteLine($"Puzzle count: {puzzleManager.Count}");
+                Console.WriteLine($"Solver mode: {options.SolverMode}");
+                Console.WriteLine($"Timeout: {options.TimeoutMinutes} minutes");
+                Console.WriteLine("Press any key to continue...");
+                Console.ReadKey();
+                PrintHeader();
+                var modes = options.SolverMode.Split(',');
+                foreach (var grid in puzzleManager.Puzzles())
+                {
+                    foreach (var solverMode in modes)
+                    {
+                        RunBenchmark(grid, options.TimeoutMinutes, false, solverMode);
+                    }
+                }
+            }
+        }
 
         static void Main(string[] args)
         {
-            Console.WriteLine("Train Tracks Solver\n");
-            if (args.Length < 1 || args.Length > 5)
-            {
-                Console.WriteLine("Usage: TrainTrackRunner <puzzle-file-path> [path|pq|astar|benchmark|generate] [rows] [cols] [fixedCount]");
-                return;
-            }
-
-            var path = args[0];
-            var mode = args.Length > 1 ? args[1].ToLower() : "path";
-            if (mode != "path" && mode != "pq" && mode != "astar" && mode != "benchmark" && mode != "generate")
-            {
-                Console.WriteLine("Invalid mode. Use 'path', 'pq', 'astar', 'benchmark', or 'generate'.");
-                return;
-            }
-
-            long interval;
-            if (mode == "generate")
-            {
-                Console.Clear();
-                Console.WriteLine("Generating a random puzzle...");
-
-                var rows = args.Length > 2 ? int.Parse(args[2]) : 10;
-                var cols = args.Length > 3 ? int.Parse(args[3]) : 10;
-                var fixedCount = args.Length > 4 ? int.Parse(args[4]) : 7;
-                var newgrid = PuzzleGenerator.Generate(rows, cols, fixedCount);
-                newgrid.Print(true);
-
-                newgrid.SaveToFile(path);
-                Console.WriteLine($"Puzzle saved to {path}");
-                return;
-            }
-            else if (mode == "benchmark")
-            {
-                RunBenchmark(path);
-                return;
-            } else if (mode == "path")
-            {
-                interval = 100L;
-            }
-            else if (mode == "pq")
-            {
-                interval = 10000L;
-            }
-            else if (mode == "astar")
-            {
-                interval = 100L;
-            }
-            else
-            {
-                Console.WriteLine("Invalid mode. Use 'path', 'pq', 'astar', 'benchmark', or 'generate'.");
-                return;
-            }
-            
-            Console.Clear();
-
-            // Single-solver mode
-            Grid grid;
-            try { grid = Grid.LoadFromFile(path); grid.Print(); }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error loading puzzle: {ex.Message}");
-                return;
-            }
-
-            Console.WriteLine($"Using {mode} solver. Press any key to start...");
-            Console.ReadKey();
-            var progressReporter = new ConsoleProgressReporter(grid);
-            ISolver solver = mode switch
-            {
-                "pq"   => new Solver(grid, progressReporter),
-                "astar"=>  new AStarSolver(grid, progressReporter),
-                _       => new PathBuilderSolver(grid, progressReporter)
-            };
-
-            progressReporter.ProgressInterval = interval;
-
-            Console.WriteLine($"Running solver with a timeout of {SolverTimeout.TotalMinutes} minutes...");
-            var sw = Stopwatch.StartNew();
-            var task = Task.Run(() => solver.Solve());
-            bool completed = task.Wait(SolverTimeout);
-            sw.Stop();
-
-            var attempts = solver.IterationCount;
-            Console.Clear();
-
-            if (!completed)
-            {
-                Console.WriteLine($"Solver {mode} timed out after {SolverTimeout.TotalMinutes} minutes ({sw.ElapsedMilliseconds} ms, {attempts} iterations).");
-                grid.Print();
-                return;
-            }
-
-            bool solved = task.Result;
-            if (solved)
-            {
-                Console.WriteLine($"Solver {mode} found a solution in {attempts} iterations ({sw.ElapsedMilliseconds} ms):");
-                grid.Print();
-            }
-            else
-            {
-                Console.WriteLine($"Solver {mode} could not find a solution in {attempts} iterations ({sw.ElapsedMilliseconds} ms).");
-                grid.Print();
-            }
+            Parser.Default.ParseArguments<Options>(args)
+                .WithParsed(options =>
+                {
+                    if (options.Benchmark) {
+                        runBenchmarkMode(options);
+                        return;
+                    } else if (options.Generate) {
+                        //runGenerateMode(options);
+                        return;
+                    }
+                    runSinglePuzzleMode(options);
+                })
+                .WithNotParsed(errors =>
+                {
+                    Console.WriteLine("Error parsing arguments.");
+                });
         }
 
         class NullProgressReporter : IProgressReporter
@@ -147,41 +190,87 @@ namespace TrainTrackRunner
             }
         }
 
-
-        static void RunBenchmark(string path)
+        static void solveGridWithSolver(Grid grid, string mode, long interval, int timeout)
         {
-            var reporters = new NullProgressReporter();
-            var solvers = new[] { "path",  "astar", "pq", };
+            Console.Clear();
+            grid.Print();
 
-            // Output markdown table
-            Console.WriteLine("| Solver | Iterations | Time (ms) | Solved |");
-            Console.WriteLine("| ------ | ---------- | --------- | ------ |");
+            var progressReporter = new ConsoleProgressReporter(grid);
+            ISolver solver = mode switch
+            {
+                "pq"   => new Solver(grid, progressReporter),
+                "astar"=>  new AStarSolver(grid, progressReporter),
+                _       => new PathBuilderSolver(grid, progressReporter)
+            };
+
+            progressReporter.ProgressInterval = interval;
+
+            Console.WriteLine($"Running solver with a timeout of {timeout} minutes...");
+            var sw = Stopwatch.StartNew();
+            var task = Task.Run(() => solver.Solve());
+            bool completed = task.Wait(TimeSpan.FromMinutes(timeout));
+            sw.Stop();
+
+            var attempts = solver.IterationCount;
+            Console.Clear();
+            grid.Print();
+            Console.WriteLine();
+            if (!completed)
+            {
+                Console.WriteLine($"Solver {mode} timed out after {sw.ElapsedMilliseconds} ms, {attempts} iterations.");
+                return;
+            }
+
+            bool solved = task.Result;
+            if (solved)
+            {
+                Console.WriteLine($"Solver {mode} found a solution in {attempts} iterations ({sw.ElapsedMilliseconds} ms):");
+            }
+            else
+            {
+                Console.WriteLine($"Solver {mode} could not find a solution in {attempts} iterations ({sw.ElapsedMilliseconds} ms).");
+            }
+        }
+
+        static void PrintHeader()
+        {
+            Console.WriteLine("| Rows x Cols | Solver | Iterations | Time (ms) | Solved |");
+            Console.WriteLine("|-------------|--------|------------|-----------|--------|");
+        }
+
+        static void RunBenchmark(Grid grid, int timeout, bool printHeader = true, string? solverMode = null)
+        {
+            if (printHeader)
+            {
+                PrintHeader();
+            }
+
+            // Run each solver
+            var solvers = new[] { "path",  "astar", "pq", };
+            var reporters = new NullProgressReporter();
 
             foreach (var mode in solvers)
             {
-                Grid grid;
-                try { grid = Grid.LoadFromFile(path); }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error loading puzzle for {mode}: {ex.Message}");
+                if (solverMode != null && mode != solverMode)
                     continue;
-                }
+
+                var g = grid.Clone();
 
                 ISolver solver = mode switch
                 {
-                    "pq"    => new Solver(grid, reporters),
-                    "astar" => new AStarSolver(grid, reporters),
-                    _        => new PathBuilderSolver(grid, reporters)
+                    "pq"    => new Solver(g, reporters),
+                    "astar" => new AStarSolver(g, reporters),
+                    _        => new PathBuilderSolver(g, reporters)
                 };
 
                 var sw = Stopwatch.StartNew();
                 
                 var task = Task.Run(() => solver.Solve());
-                bool completed = task.Wait(SolverTimeout);
+                bool completed = task.Wait(TimeSpan.FromMinutes(timeout));
 
                 sw.Stop();
                 bool solved = completed && task.Result;
-                Console.WriteLine($"| {mode} | {solver.IterationCount} | {sw.ElapsedMilliseconds} | {(solved ? "Yes" : "No")} |");
+                Console.WriteLine($"| {grid.Rows}x{grid.Cols} | {mode} | {solver.IterationCount} | {sw.ElapsedMilliseconds} | {(solved ? "Yes" : "No")} |");
             }
         }
     }

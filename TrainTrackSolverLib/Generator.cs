@@ -17,41 +17,33 @@ namespace TrainTrackSolverLib
         /// <summary>
         /// Generates a puzzle with the given dimensions and number of fixed clues.
         /// </summary>
-        public static Grid Generate(int rows, int cols, int fixedCount)
+        public static Puzzle Generate(int rows, int cols, int fixedCount)
         {
             do {
                 // Step 1: Carve a random solution path
                 var fullGrid = CarveSolutionPath(rows, cols);
 
                 // Step 2: Collect all path cells
-                var pathCells = new List<(int,int)>();
+                var pathCells = new List<Point>();
                 for (int r = 0; r < rows; r++)
                     for (int c = 0; c < cols; c++)
                         if (fullGrid.Board[r,c] != PieceType.Empty)
-                            pathCells.Add((r,c));
+                            pathCells.Add(new Point(r,c));
 
                 if (pathCells.Count <= fixedCount * 2)
                     continue;
 
-                // Get the entry points
-                var entryPoints = fullGrid.FindEntryPoints(pathCells).
-                    Select(p => (p.Item1, p.Item2))
-                    .ToHashSet();
+                
+                Puzzle puzzle = new Puzzle();
+                
+                puzzle.GridHeight = rows;
+                puzzle.GridWidth = cols;
 
-                // Step 3: Randomly reveal a subset of clues
-                var reveal = pathCells.Where(p => !entryPoints.Contains(p))
-                                        .OrderBy(_ => _rand.Next())
-                                        .Take(Math.Min(fixedCount, pathCells.Count))
-                                        .ToHashSet();
-
-                // Step 4: Build puzzle grid
-                var puzzle = new Grid(rows, cols, fullGrid.RowCounts, fullGrid.ColCounts);
-                for (int r = 0; r < rows; r++)
-                    for (int c = 0; c < cols; c++)
-                        puzzle.Board[r,c] = (reveal.Contains((r,c)) || entryPoints.Contains((r,c)))
-                            ? fullGrid.Board[r,c]
-                            : PieceType.Empty;
-
+                // Randomly select fixed cells
+                var fixedCells = pathCells.Where(fp => fullGrid.Entry != fp &&
+                                                      fullGrid.Exit != fp)
+                    .OrderBy(_ => _rand.Next()).Take(fixedCount).ToList();
+                
                 return puzzle;
             } while (true);
         }
@@ -75,8 +67,8 @@ namespace TrainTrackSolverLib
             // Carve a path between the two edge cells
             BuildPath(grid, visited, (r0, c0), piece, (r1,c1), null);
 
-            // Update counts based on carved Board
-            grid.UpdateCounts();
+            // Finalize board based on carved Board
+            grid.FinalizeGrid();
             return grid;
         }
 

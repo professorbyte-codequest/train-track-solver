@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.ComponentModel;
 using System.Linq;
 using TrainTrackSolverLib.Common;
 
@@ -12,8 +14,7 @@ namespace TrainTrackSolverLib
     public class AStarSolver : ISolver
     {
         private readonly Grid _initialGrid;
-        private readonly (int r, int c, (int dr, int dc) incoming) _entry;
-        private readonly List<(int r, int c)> _fixedPositions;
+        private readonly List<Point> _fixedPositions;
         private readonly int _targetFixedCount;
         private readonly IProgressReporter _progressReporter;
         private long _iterationCount;
@@ -29,13 +30,7 @@ namespace TrainTrackSolverLib
             _iterationCount = 0;
 
             // Gather all fixed positions
-            _fixedPositions = new List<(int, int)>();
-            for (int r = 0; r < grid.Rows; r++)
-                for (int c = 0; c < grid.Cols; c++)
-                    if (grid.Board[r, c] != PieceType.Empty)
-                        _fixedPositions.Add((r, c));
-
-            _entry = grid.FindEntryPoints(_fixedPositions).First();
+            _fixedPositions = grid.FixedPoints();
 
             _targetFixedCount = _fixedPositions.Count;
         }
@@ -46,9 +41,9 @@ namespace TrainTrackSolverLib
 
             // Initialize start
             var startGrid = _initialGrid.Clone();
-            var startVisited = new HashSet<(int, int)> { (_entry.r, _entry.c) };
+            var startVisited = new HashSet<Point> { _initialGrid.Entry };
             int startFixedHit = 1;
-            var startState = new State(startGrid, _entry.r, _entry.c, _entry.incoming, startVisited, startFixedHit, 0);
+            var startState = new State(startGrid, _initialGrid.Entry, (0, 0), startVisited, startFixedHit, 0);
             _bestG[new StateSignature(startState)] = 0;
             openSet.Enqueue(startState, Heuristic(startState));
 
@@ -91,7 +86,7 @@ namespace TrainTrackSolverLib
 
         private IEnumerable<State> ExpandNeighbors(State state)
         {
-            int r = state.R, c = state.C;
+            int r = state.Pos.Y, c = state.Pos.X;
             var existing = state.GridState.Board[r, c];
 
             IEnumerable<PieceType> candidates = existing != PieceType.Empty
@@ -107,7 +102,7 @@ namespace TrainTrackSolverLib
                     newGrid.Place(r, c, piece);
 
                 int fixedHit = state.FixedHit + (existing != PieceType.Empty ? 1 : 0);
-                var visited = new HashSet<(int, int)>(state.Visited) { (r, c) };
+                var visited = new HashSet<Point>(state.Visited) { state.Pos };
 
                 foreach (var (dr, dc) in TrackConnections.GetConnections(piece))
                 {
@@ -115,10 +110,11 @@ namespace TrainTrackSolverLib
                         continue;
 
                     int nr = r + dr, nc = c + dc;
-                    if (!newGrid.IsInBounds(nr, nc) || visited.Contains((nr, nc)))
+                    var next = new Point(nr, nc);
+                    if (!newGrid.IsInBounds(nr, nc) || visited.Contains(next))
                         continue;
 
-                    yield return new State(newGrid, nr, nc, (dr, dc), visited, fixedHit, state.G + 1);
+                    yield return new State(newGrid, next, (dr, dc), visited, fixedHit, state.G + 1);
                 }
             }
         }
@@ -133,21 +129,21 @@ namespace TrainTrackSolverLib
             if (remain.Count > 0)
             {
                 // Build list of points including current position
-                var points = remain.Select(fp => (fp.Item1, fp.Item2)).ToList();
-                points.Add((s.R, s.C));
+                var points = remain.ToList();
+                points.Add((s.Pos));
 
-                var visitedPts = new HashSet<(int, int)> { (s.R, s.C) };
+                var visitedPts = new HashSet<Point> { s.Pos };
                 while (visitedPts.Count < points.Count)
                 {
                     int bestDist = int.MaxValue;
-                    (int, int) bestP = (0, 0);
+                    Point bestP = new Point(0, 0);
 
                     foreach (var p in points)
                     {
                         if (visitedPts.Contains(p)) continue;
                         foreach (var v in visitedPts)
                         {
-                            int d = Math.Abs(p.Item1 - v.Item1) + Math.Abs(p.Item2 - v.Item2);
+                            int d = p.ManhattanDistance(v);
                             if (d < bestDist)
                             {
                                 bestDist = d;
@@ -160,18 +156,12 @@ namespace TrainTrackSolverLib
                 }
 
                 // Distance from nearest fixed to exit
-                exitDist = remain.Min(p => Math.Min(
-                    Math.Min(p.Item1, rows - 1 - p.Item1),
-                    Math.Min(p.Item2, cols - 1 - p.Item2)
-                ));
+                exitDist = remain.Min(p => p.ManhattanDistance(s.GridState.Exit));
             }
             else
             {
                 // No remaining fixed: distance to exit
-                exitDist = Math.Min(
-                    Math.Min(s.R, rows - 1 - s.R),
-                    Math.Min(s.C, cols - 1 - s.C)
-                );
+                exitDist = s.Pos.ManhattanDistance(s.GridState.Exit);
             }
 
             int mismatchPenalty = 0;
@@ -191,26 +181,26 @@ namespace TrainTrackSolverLib
             var grid = s.GridState;
             int rows = grid.Rows, cols = grid.Cols;
             var visited = new bool[rows, cols];
-            var queue = new Queue<(int, int)>();
-            queue.Enqueue((s.R, s.C));
-            visited[s.R, s.C] = true;
+            var queue = new Queue<Point>();
+            queue.Enqueue(s.Pos);
+            visited[s.Pos.Y, s.Pos.X] = true;
             while (queue.Count > 0)
             {
-                var (r, c) = queue.Dequeue();
+                var pos = queue.Dequeue();
                 foreach (var (dr, dc) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
                 {
-                    int nr = r + dr, nc = c + dc;
-                    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
-                    if (visited[nr, nc]) continue;
+                    var next = pos + (dr, dc);
+                    if (!grid.IsInBounds(next.Y, next.X)) continue;
+                    if (visited[next.Y, next.X]) continue;
                     // treat all cells as passable for reachability
-                    visited[nr, nc] = true;
-                    queue.Enqueue((nr, nc));
+                    visited[next.Y, next.X] = true;
+                    queue.Enqueue(next);
                 }
             }
             // ensure every unvisited fixed is reachable
             foreach (var fp in _fixedPositions)
             {
-                if (!s.Visited.Contains(fp) && !visited[fp.Item1, fp.Item2])
+                if (!s.Visited.Contains(fp) && !visited[fp.Y, fp.X])
                     return false;
             }
             return true;
@@ -218,7 +208,7 @@ namespace TrainTrackSolverLib
 
         private bool IsGoal(State s)
             => s.FixedHit == _targetFixedCount
-               && s.GridState.IsOnEdge(s.R, s.C)
+               && s.GridState.IsOnEdge(s.Pos.Y, s.Pos.X)
                && s.GridState.TrackCountInAllRowsColsMatch();
 
         private readonly struct StateSignature : IEquatable<StateSignature>
@@ -229,8 +219,8 @@ namespace TrainTrackSolverLib
 
             public StateSignature(State s)
             {
-                _r = s.R;
-                _c = s.C;
+                _r = s.Pos.Y;
+                _c = s.Pos.X;
                 _incoming = s.Incoming;
                 _fixedHit = s.FixedHit;
                 unchecked
@@ -238,8 +228,8 @@ namespace TrainTrackSolverLib
                     int hash = 17;
                     foreach (var p in s.Visited.OrderBy(x => x))
                     {
-                        hash = hash * 31 + p.Item1;
-                        hash = hash * 31 + p.Item2;
+                        hash = hash * 31 + p.Y;
+                        hash = hash * 31 + p.X;
                     }
                     _visitedHash = hash;
                 }
@@ -256,19 +246,17 @@ namespace TrainTrackSolverLib
         private class State
         {
             public Grid GridState { get; }
-            public int R { get; }
-            public int C { get; }
+            public Point Pos { get; }
             public (int dr, int dc) Incoming { get; }
-            public HashSet<(int, int)> Visited { get; }
+            public HashSet<Point> Visited { get; }
             public int FixedHit { get; }
             public int G { get; }
 
-            public State(Grid grid, int r, int c, (int dr, int dc) incoming,
-                         HashSet<(int, int)> visited, int fixedHit, int g)
+            public State(Grid grid, Point pos, (int dr, int dc) incoming,
+                         HashSet<Point> visited, int fixedHit, int g)
             {
                 GridState = grid;
-                R = r;
-                C = c;
+                Pos = pos;
                 Incoming = incoming;
                 Visited = visited;
                 FixedHit = fixedHit;
