@@ -1,12 +1,8 @@
 ﻿// TrainTrackRunner - Console app to run the Part 1 solver
-using System;
 using System.Diagnostics;
-using System.Threading.Tasks;
 using TrainTrackSolverLib;
 using TrainTrackSolverLib.Common;
 using CommandLine;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 
 namespace TrainTrackRunner
 {
@@ -59,7 +55,6 @@ namespace TrainTrackRunner
             public bool Generate { get; set; } = false;
             [Option('t', "timeout", Required = false, Default = 5, HelpText = "Solver timeout in minutes.")]
             public int TimeoutMinutes { get; set; } = DefaultTimeoutMinutes;
-
         }
 
         static void runSinglePuzzleMode(Options options)
@@ -132,9 +127,10 @@ namespace TrainTrackRunner
                 Console.WriteLine();
                 PrintHeader();
                 var modes = options.SolverMode.Split(',');
+
                 foreach (var solverMode in modes)
                 {
-                    RunBenchmark(grid, options.TimeoutMinutes, false, solverMode);
+                    RunBenchmark(1, grid, options.TimeoutMinutes, false, solverMode);
                 }
             }
             else
@@ -150,11 +146,13 @@ namespace TrainTrackRunner
                 Console.ReadKey();
                 PrintHeader();
                 var modes = options.SolverMode.Split(',');
+                int index = 0;
                 foreach (var grid in puzzleManager.Puzzles())
                 {
+                    index++;
                     foreach (var solverMode in modes)
                     {
-                        RunBenchmark(grid, options.TimeoutMinutes, false, solverMode);
+                        RunBenchmark(index, grid, options.TimeoutMinutes, false, solverMode);
                     }
                 }
             }
@@ -217,28 +215,28 @@ namespace TrainTrackRunner
             Console.WriteLine();
             if (!completed)
             {
-                Console.WriteLine($"Solver {mode} timed out after {sw.ElapsedMilliseconds} ms, {attempts} iterations.");
+                Console.WriteLine($"Solver {mode} timed out after {sw.ElapsedMilliseconds:N0} ms, {attempts:N0} iterations.");
                 return;
             }
 
             bool solved = task.Result;
             if (solved)
             {
-                Console.WriteLine($"Solver {mode} found a solution in {attempts} iterations ({sw.ElapsedMilliseconds} ms):");
+                Console.WriteLine($"Solver {mode} found a solution in {attempts:N0} iterations ({sw.ElapsedMilliseconds:N0} ms):");
             }
             else
             {
-                Console.WriteLine($"Solver {mode} could not find a solution in {attempts} iterations ({sw.ElapsedMilliseconds} ms).");
+                Console.WriteLine($"Solver {mode} could not find a solution in {attempts:N0} iterations ({sw.ElapsedMilliseconds:N0} ms).");
             }
         }
 
         static void PrintHeader()
         {
-            Console.WriteLine("| Rows x Cols | Solver | Iterations | Time (ms) | Solved |");
-            Console.WriteLine("|-------------|--------|------------|-----------|--------|");
+            Console.WriteLine("| # | Rows x Cols | Solver | Iterations | Time (ms) | Solved |");
+            Console.WriteLine("| - |-------------|--------|------------|-----------|--------|");
         }
 
-        static void RunBenchmark(Grid grid, int timeout, bool printHeader = true, string? solverMode = null)
+        static void RunBenchmark(int index, Grid grid, int timeout, bool printHeader = true, string? solverMode = null)
         {
             if (printHeader)
             {
@@ -270,7 +268,7 @@ namespace TrainTrackRunner
 
                 sw.Stop();
                 bool solved = completed && task.Result;
-                Console.WriteLine($"| {grid.Rows}x{grid.Cols} | {mode} | {solver.IterationCount} | {sw.ElapsedMilliseconds} | {(solved ? "Yes" : "No")} |");
+                Console.WriteLine($"| {index} | {grid.Rows}x{grid.Cols} | {mode} | {solver.IterationCount:N0} | {sw.ElapsedMilliseconds:N0} | {(solved ? "Yes" : "No")} |");
             }
         }
     }
