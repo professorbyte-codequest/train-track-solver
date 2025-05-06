@@ -37,8 +37,19 @@ public static class TrackConnections
     /// The directions are represented as (row change, column change) tuples.
     /// For example, (0, 1) means the piece can connect to the right.
     /// </remarks>
-    public static IEnumerable<(int dr, int dc)> GetConnections(PieceType type) =>
+    private static IEnumerable<(int dr, int dc)> GetConnections_(PieceType type) =>
         Directions.TryGetValue(type, out var dirs) ? dirs : Array.Empty<(int, int)>();
+
+    public static readonly Dictionary<PieceType, List<(int dr, int dc)>> GetConnectionCache =
+        Enum.GetValues(typeof(PieceType))
+            .Cast<PieceType>()
+            .ToDictionary(p => p, p => TrackConnections.GetConnections_(p).ToList());
+
+    public static IEnumerable<(int dr, int dc)> GetConnections(PieceType type)
+    {
+        if (type == PieceType.Empty) return Array.Empty<(int, int)>();
+        return GetConnectionCache[type];
+    }
 
     /// <summary>
     /// Finds a PieceType whose connections exactly include both directions.
