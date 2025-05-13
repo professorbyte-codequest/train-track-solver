@@ -241,11 +241,22 @@ public class Grid
         if (TrackCountInRow(r) >= RowCounts[r]) return false;
         if (TrackCountInCol(c) >= ColCounts[c]) return false;
 
+
+        // 2) Edge‐entry rules
+        if (r == 0 && (piece == PieceType.Vertical || piece == PieceType.CornerNW || piece == PieceType.CornerNE))
+            return false;
+        if (r == Rows-1 && (piece == PieceType.Vertical || piece == PieceType.CornerSW || piece == PieceType.CornerSE))
+            return false;
+        if (c == 0 && (piece == PieceType.Horizontal || piece == PieceType.CornerNW || piece == PieceType.CornerSW))
+            return false;
+        if (c == Cols-1 && (piece == PieceType.Horizontal || piece == PieceType.CornerNE || piece == PieceType.CornerSE))
+            return false;
+
         var dirs = new[] { (0, 1), (1, 0), (0, -1), (-1, 0) };
         bool hasNeighbor = false;
         bool connectsToAny = false;
 
-        // 2) Existing‐neighbor alignment
+        // 3) Existing‐neighbor alignment
         foreach (var (dr, dc) in dirs)
         {
             int nr = r + dr, nc = c + dc;
@@ -261,7 +272,10 @@ public class Grid
         }
         if (hasNeighbor && !connectsToAny) return false;
 
-        // 3) look‐ahead: every direction this piece *will* connect must have capacity
+        // Assume we placed it
+        int placedInRow = _placedInRow[r] + 1;
+        int placedInCol = _placedInCol[c] + 1;
+        // 4) look‐ahead: every direction this piece *will* connect must have capacity
         foreach (var (dr, dc) in TrackConnections.GetConnections(piece))
         {
             int nr = r + dr, nc = c + dc;
@@ -269,21 +283,13 @@ public class Grid
                 return false;    // can’t connect off‐board
             if (Board[nr, nc] == PieceType.Empty)
             {
+                int checkRow = dr == 0 ? placedInRow : _placedInRow[nr];
+                int checkCol = dc == 0 ? placedInCol : _placedInCol[nc];
                 // if that row/col is already at its count, we can't ever fill it
-                if (TrackCountInRow(nr) >= RowCounts[nr] || TrackCountInCol(nc) >= ColCounts[nc])
+                if (checkRow >= RowCounts[nr] || checkCol >= ColCounts[nc])
                     return false;
             }
         }
-
-        // 4) Edge‐entry rules
-        if (r == 0 && (piece == PieceType.Vertical || piece == PieceType.CornerNW || piece == PieceType.CornerNE))
-            return false;
-        if (r == Rows-1 && (piece == PieceType.Vertical || piece == PieceType.CornerSW || piece == PieceType.CornerSE))
-            return false;
-        if (c == 0 && (piece == PieceType.Horizontal || piece == PieceType.CornerNW || piece == PieceType.CornerSW))
-            return false;
-        if (c == Cols-1 && (piece == PieceType.Horizontal || piece == PieceType.CornerNE || piece == PieceType.CornerSE))
-            return false;
 
         return true;
     }
