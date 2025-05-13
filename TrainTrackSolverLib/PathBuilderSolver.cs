@@ -94,7 +94,8 @@ namespace TrainTrackSolverLib
                 : Enum.GetValues(typeof(PieceType))
                       .Cast<PieceType>()
                       .Where(p => p != PieceType.Empty)
-                      .Where(p => _grid.CanPlace(pos, p));
+                      .Where(p => _grid.CanPlace(pos, p))
+                      .Reverse(); // Reverse to priortize branching, over straight lines
 
             foreach (var piece in candidates)
             {
